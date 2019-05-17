@@ -1,8 +1,8 @@
-
-from keras.utils import conv_utils
-from keras import backend as K
-from keras.engine import InputSpec
-from keras.layers import Conv2D
+import tensorflow as tf
+#from tensorflow.keras.utils import conv_utils
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import InputSpec
+from tensorflow.keras.layers import Conv2D
 
 
 class PConv2D(Conv2D):
@@ -10,21 +10,21 @@ class PConv2D(Conv2D):
         super().__init__(*args, **kwargs)
         self.input_spec = [InputSpec(ndim=4), InputSpec(ndim=4)]
 
-    def build(self, input_shape):        
-        """Adapted from original _Conv() layer of Keras        
+    def build(self, input_shape):
+        """Adapted from original _Conv() layer of Keras
         param input_shape: list of dimensions for [img, mask]
         """
-        
+
         if self.data_format == 'channels_first':
             channel_axis = 1
         else:
             channel_axis = -1
-            
+
         if input_shape[0][channel_axis] is None:
             raise ValueError('The channel dimension of the inputs should be defined. Found `None`.')
-            
+
         self.input_dim = input_shape[0][channel_axis]
-        
+
         # Image kernel
         kernel_shape = self.kernel_size + (self.input_dim, self.filters)
         self.kernel = self.add_weight(shape=kernel_shape,
@@ -37,13 +37,13 @@ class PConv2D(Conv2D):
 
         # Calculate padding size to achieve zero-padding
         self.pconv_padding = (
-            (int((self.kernel_size[0]-1)/2), int((self.kernel_size[0]-1)/2)), 
-            (int((self.kernel_size[0]-1)/2), int((self.kernel_size[0]-1)/2)), 
+            (int((self.kernel_size[0]-1)/2), int((self.kernel_size[0]-1)/2)),
+            (int((self.kernel_size[0]-1)/2), int((self.kernel_size[0]-1)/2)),
         )
 
         # Window size - used for normalization
         self.window_size = self.kernel_size[0] * self.kernel_size[1]
-        
+
         if self.use_bias:
             self.bias = self.add_weight(shape=(self.filters,),
                                         initializer=self.bias_initializer,
@@ -61,7 +61,7 @@ class PConv2D(Conv2D):
         convolutions. For the mask itself, we apply convolutions with all weights
         set to 1.
         Subsequently, we clip mask values to between 0 and 1
-        ''' 
+        '''
 
         # Both image and mask must be supplied
         if type(inputs) is not list or len(inputs) != 2:
@@ -73,7 +73,7 @@ class PConv2D(Conv2D):
 
         # Apply convolutions to mask
         mask_output = K.conv2d(
-            masks, self.kernel_mask, 
+            masks, self.kernel_mask,
             strides=self.strides,
             padding='valid',
             data_format=self.data_format,
@@ -82,12 +82,12 @@ class PConv2D(Conv2D):
 
         # Apply convolutions to image
         img_output = K.conv2d(
-            (images*masks), self.kernel, 
+            (images*masks), self.kernel,
             strides=self.strides,
             padding='valid',
             data_format=self.data_format,
             dilation_rate=self.dilation_rate
-        )        
+        )
 
         # Calculate the mask ratio on each pixel in the output mask
         mask_ratio = self.window_size / (mask_output + 1e-8)
@@ -107,19 +107,19 @@ class PConv2D(Conv2D):
                 img_output,
                 self.bias,
                 data_format=self.data_format)
-        
+
         # Apply activations on the image
         if self.activation is not None:
             img_output = self.activation(img_output)
-            
+
         return [img_output, mask_output]
-    
+
     def compute_output_shape(self, input_shape):
         if self.data_format == 'channels_last':
             space = input_shape[0][1:-1]
             new_space = []
             for i in range(len(space)):
-                new_dim = conv_utils.conv_output_length(
+                new_dim = tf.keras.utils.conv_utils.conv_output_length(
                     space[i],
                     self.kernel_size[i],
                     padding='same',
@@ -132,7 +132,7 @@ class PConv2D(Conv2D):
             space = input_shape[2:]
             new_space = []
             for i in range(len(space)):
-                new_dim = conv_utils.conv_output_length(
+                new_dim = tf.keras.utils.conv_utils.conv_output_length(
                     space[i],
                     self.kernel_size[i],
                     padding='same',
