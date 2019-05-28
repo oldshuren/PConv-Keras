@@ -263,8 +263,15 @@ class PConvUnet(object):
     def load(self, filepath, train_bn=True, lr=0.0002):
 
         # Create UNet-like model
-        self.model, inputs_mask = self.build_pconv_unet(train_bn)
-        self.compile_pconv_unet(self.model, inputs_mask, lr)
+        if self.gpus <= 1:
+            self.model, inputs_mask = self.build_pconv_unet(train_bn)
+            self.compile_pconv_unet(self.model, inputs_mask, lr)
+        else:
+            print('PConvUnet using {} gpus'.format(self.gpus))
+            with tf.device("/cpu:0"):
+                self.model, inputs_mask = self.build_pconv_unet()
+            self.model = multi_gpu_model(self.model, gpus=self.gpus, cpu_merge=False)
+            self.compile_pconv_unet(self.model, inputs_mask)
 
         # Load weights into model
         epoch = int(os.path.basename(filepath).split('.')[1].split('-')[0])
